@@ -1,0 +1,163 @@
+user www-data;
+worker_processes 4;
+pid /run/nginx.pid;
+
+events {
+        worker_connections 768;
+        # multi_accept on;
+}
+
+http {
+
+        ##
+        # Basic Settings
+        ##
+
+        proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=one:8m max_size=3000m inactive=600m;
+        proxy_temp_path /var/tmp;
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        # server_tokens off;
+
+        server_names_hash_bucket_size 128;
+        # server_name_in_redirect off;
+
+        include /usr/local/nginx/conf/mime.types;
+        default_type application/octet-stream;
+
+        ##
+        # Logging Settings
+        ##
+
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+
+        ##
+        # Gzip Settings
+        ##
+        gzip on;
+        gzip_disable "msie6";
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_buffers 16 8k;
+        gzip_http_version 1.1;
+
+        #text/html is always compressed by default
+        gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+
+        #google recommendation for min length below which not to gzip
+        #default nginx value is 20
+        gzip_min_length 150
+
+        ##
+        # nginx-naxsi config
+        ##
+        # Uncomment it if you installed nginx-naxsi
+        ##
+
+        #include /etc/nginx/naxsi_core.rules;
+
+        ##
+        # nginx-passenger config
+        ##
+        # Uncomment it if you installed nginx-passenger
+        ##
+
+        #passenger_root /usr;
+        #passenger_ruby /usr/bin/ruby;
+
+        server {
+          listen 80;
+          return 301 https://$host$request_uri;
+      }
+
+
+      server {
+        listen 9002 ssl spdy;
+
+        #ssl on;
+        ssl_certificate /etc/ssl/YOUR_DOMAIN.crt;
+        ssl_certificate_key /etc/ssl/YOUR_DOMAIN.key;
+
+        server_name YOUR_DOMAIN.com www.YOUR_DOMAIN.com;
+
+        location / {
+            proxy_redirect off;
+            proxy_set_header   X-Real-IP            $remote_addr;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_set_header   Host                   $http_host;
+            proxy_set_header   X-NginX-Proxy    true;
+            proxy_set_header   Connection "";
+            proxy_http_version 1.1;
+            proxy_cache one;
+            proxy_cache_key sfs$request_uri$scheme;
+            proxy_pass http://127.0.0.1:9003;
+          }
+      }
+
+      server {
+          listen 443 ssl spdy;
+
+          #ssl on;
+          ssl_certificate /etc/ssl/YOUR_DOMAIN.crt;
+          ssl_certificate_key /etc/ssl/YOUR_DOMAIN.key;
+
+          server_name YOUR_DOMAIN.com www.YOUR_DOMAIN.com;
+
+          #let nginx serve all static media
+          location ~ ^/(images/|img/|javascript/|javascripts/|js/|css/|stylesheets/|flash/|media/|static/|robots.txt|humans.txt|favicon.ico) {
+            root /home/YOUR_USER/YOUR_DOMAIN/web/public;
+            access_log off;
+            expires max;
+          }
+
+          location / {
+            proxy_redirect off;
+            proxy_set_header   X-Real-IP            $remote_addr;
+            proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_set_header   Host                   $http_host;
+            proxy_set_header   X-NginX-Proxy    true;
+            proxy_set_header   Connection "";
+            proxy_http_version 1.1;
+            proxy_cache one;
+            proxy_cache_key sfs$request_uri$scheme;
+            proxy_pass http://127.0.0.1:3000;
+          }
+
+}
+
+
+        ##
+        # Virtual Host Configs
+        ##
+
+        #include /etc/nginx/conf.d/*.conf;
+        #include /etc/nginx/sites-enabled/*;
+}
+
+#mail {
+#       # See sample authentication script at:
+#       # http://wiki.nginx.org/ImapAuthenticateWithApachePhpScript
+#
+#       # auth_http localhost/auth.php;
+#       # pop3_capabilities "TOP" "USER";
+#       # imap_capabilities "IMAP4rev1" "UIDPLUS";
+#
+#       server {
+#               listen     localhost:110;
+#               protocol   pop3;
+#               proxy      on;
+#       }
+#
+#       server {
+#               listen     localhost:143;
+#               protocol   imap;
+#               proxy      on;
+#       }
+#}
